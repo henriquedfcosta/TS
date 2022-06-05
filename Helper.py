@@ -7,6 +7,6 @@ class Helper():
 
     def hashFilePath(self):
 
-        hash_path = "/home/kali/Desktop/myMountPoint/catfile.txt"
+        hash_path = "/home/kali/Desktop/TS/TS/catfile.txt"
 
         return hash_path

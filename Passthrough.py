@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from __future__ import with_statement
 
 import os
@@ -7,21 +5,18 @@ import sys
 import errno
 import ntpath
 import json
-import pwd, grp
-import hashlib
-import subprocess
+from turtle import xcor
 from Helper import Helper
+import subprocess
 
 from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 
-#atr_path = "/home/dancrossss/Desktop/TS/atributos.json"
 
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
         self.atr_path, self.hash_path = self.getPaths()
-        self.getCriticalFileAttributes()
-        #self.allFileUsersAccess() 
+        self.getCriticalFileAtributtes()
 
     # Helpers
     # =======
@@ -59,59 +54,39 @@ class Passthrough(Operations):
 
         #full_path = self._full_path(path)
         st = os.stat(path)
-        #os.access(full_path, os.W_OK)
-        #print(st)
         attr = {}
-        # counter = 4
-        dict_ = {}
-        # print(counter)
-        attr['file_name'] = ntpath.basename(path)
-        attr['st_uid'] = os.stat(path).st_uid
-        attr['st_gid'] = os.stat(path).st_gid
-        attr['rp'] = True if os.access(path, os.R_OK) == True else False
-        attr['wp'] = True if os.access(path, os.W_OK) == True else False
-        attr['xp'] = True if os.access(path, os.X_OK) == True else False
-        #attr['hash'] = self.hash_file(path)
-        try:
-            with open(self.hash_path, "w") as fs:
-                #child2 = subprocess.Popen(["cat", "texto.txt"], stdout = fs)
-                child3 = subprocess.Popen(["sha1sum", path], stdout = fs)
-                with open(self.hash_path, "r") as f:
-                    for line in f:
-                        line = line.split(" ")
-                        attr['hash'] = line[0]
-        except FileNotFoundError:
-            print("Ficheiro 'catfile.txt' não existe")
+        counter = 0
+        dict_ = []
 
-        #print(attr)
-        # counter+=1
-        # print(counter)
-        # print(attr)
+        #Testar se o path que mandei é readability
+        read = os.access(path, os.R_OK)
+        #Testar se o path que mandei é writable
+        write = os.access(path, os.W_OK)
+        #Testar se o path que mandei é executável
+        execute = os.access(path, os.X_OK)
+
+        for key in ('st_mode', 'st_ino', 'st_dev', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_ctime'):
+                
+            attr['file_name'] = ntpath.basename(path)
+            attr['read'] = read
+            attr['write'] = write
+            attr['execute'] = execute
+
+            try:
+                with open(self.hash_path, "w") as fs:
+                    child3 = subprocess.Popen(["sha1sum", path], stdout = fs, stderr=subprocess.DEVNULL)
+                    with open(self.hash_path, "r") as f:
+                        for line in f:
+                            line = line.split(" ")
+                            attr['hash'] = line[0]
+            except FileNotFoundError:
+                print("Ficheiro 'catfile.txt' não existe")   
 
 
-        # try:
-        #     for key in ('st_mode', 'st_ino', 'st_dev', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_ctime'):
-        #         if key == 'st_uid' or key == 'st_gid':
-        #             attr[key] = st[counter]
-        #             counter = counter + 1
-        #             attr['rp'] = True if os.access(path, os.R_OK) == True else False
-        #             attr['wp'] = True if os.access(path, os.W_OK) == True else False
-        #             attr['xp'] = True if os.access(path, os.X_OK) == True else False
-                #print(ntpath.basename(path))
-                #print("cenas: ", self.hash_file(ntpath.basename(path)))
-                #attr['hash'] = self.hash_file(ntpath.basename(path))
-                #attr['rp'] = True
-        # except:
-        #     print("E link")
-        # print(attr)
+            attr[key] = st[counter]
+            counter = counter + 1
 
-        """file = self.open(full_path, os.O_RDONLY)
-        attr['hash'] = hashlib.sha256(file).hexdigest() 
-        print(attr['hash'])"""
-
-        dict_[ntpath.basename(path)] = attr
-
-        return dict_ 
+        return attr 
 
     def readdir(self, path, fh):
         full_path = self._full_path(path)
@@ -198,114 +173,82 @@ class Passthrough(Operations):
     def fsync(self, path, fdatasync, fh):
         return self.flush(path, fh)
 
-    def hash_file(self, filename):
-        """"This function returns the SHA-1 hash
-        of the file passed into it"""
-
-        # make a hash object
-        h = hashlib.sha1()
-
-        # open file for reading in binary mode
-        with open(filename,'rb') as file:
-
-            # loop till the end of the file
-            chunk = 0
-            while chunk != b'':
-                # read only 1024 bytes at a time
-                chunk = file.read(1024)
-                h.update(chunk)
-
-        # return the hex representation of digest
-        return h.hexdigest()
-
     # Our methods
     # ============
-    # def getAllUsers(self):
-    #     dic = {}
-    #     for p in pwd.getpwall():
-    #         # print("p: ", p)
-    #         # print("Userid: ", p[2])
-    #         # print("Groupid: ",p[3])
-    #         # print("groupinfo: ",grp.getgrgid(p[3]))
-    #         # print("username: ",p[0])
-    #         # print("groupname: ",grp.getgrgid(p[3])[0])
-    #         dic[p[0]] = grp.getgrgid(p[3])[0]
-    #     return dic
-
-    # Obter json path
+     # Obter json path
+     
     def getPaths(self):
+
         helper = Helper()
 
         self.atr_path = helper.jsonPath()
         self.hash_path = helper.hashFilePath()
 
-        return self.atr_path,self.hash_path
+        return self.atr_path, self.hash_path
 
-    def getCriticalFileAttributes(self):
+    def getCriticalFileAtributtes(self):
 
         listCriticalFolders = ["/etc/", "/dev/hd"]
+        #listCriticalFolders = ['/etc/']
         shpfiles = []
 
         print("Sistema de ficheiros iniciado")
-        
+
+        # Obter todas diretorias e ficheiros dentro das definidas na lista listCriticalFolders
         for i in range(len(listCriticalFolders)):
 
             for dirpath, subdirs, files in os.walk(listCriticalFolders[i]):
                 for x in files:
                     if not x.endswith("supervise") and not x.endswith(".service") and not x.endswith(".conf") :
                         shpfiles.append(os.path.join(dirpath, x))
-                    
-            #print("Atributos: ")
-            #print(self.getattr(shpfiles[i]))
-            #print("\n\n")
-
+     
         count = 0
+        res = {}
+        loaded = {}
 
-        for x in range(len(shpfiles)):
+
+        # Transformar em JSON
+        for x in shpfiles:
 
             #print("Atributos: ")
             #print("path", shpfiles[x])
+            file_ = ntpath.basename(x)
 
-            self.getattr(shpfiles[x])
-            with open(self.atr_path) as f:
-                try:
-                    loaded = json.load(f)
-                except:
-                    loaded = {}
+            res[file_] = self.getattr(x)
 
-            with open(self.atr_path, "w") as f:
-                
-                loaded[list(self.getattr(shpfiles[x]).keys())[0]] = self.getattr(shpfiles[x]).get(list(self.getattr(shpfiles[x]).keys())[0])
-                json.dump(loaded, f, indent=6)
+            # with open("/home/kali/Desktop/TS/TS/atributos.json", "r") as f:
+
+            #     try:
+            #         loaded = json.load(f)
+            #     except:
+            #         pass
+
+            # with open("/home/kali/Desktop/TS/TS/atributos.json", "w") as f:
+
+            #     loaded[list(self.getattr(shpfiles[x]).keys())[0]] = self.getattr(shpfiles[x]).get(list(self.getattr(shpfiles[x]).keys())[0])
+            #     json.dump(loaded, f, indent=6)
                 
             count += 1
 
-            #print("\n\n")
-        #print(count)
+            #print
+            print("\n\n")
+        print(count)
+
+        for j in range(len(listCriticalFolders)):
+            loaded[listCriticalFolders[j]] = res
+
+        j = json.dumps(loaded)
+
+        with open(self.atr_path,'w') as f:
+            f.write(j)
+            f.close()
+
+        #print("aaa", loaded)
                 
         #Testar a possibilidade de adicionar na lista
         #uma pasta e não só um ficheiro
 
-        #Converter para JSON
-        #self.getAllUsers()
         
-        return
-
-    def allFileUsersAccess(self):
-        dic = {}
-        with open(self.atr_path) as f:
-            dic2 = json.load(f)
-        
-        for key,value in dic2.items():
-            for p in pwd.getpwall():
-                if (value["st_gid"] == p[3]) or (value["st_uid"] == p[2]):
-                    if key not in dic.keys():
-                        dic[key] = [p[0]]
-                    else:
-                        dic[key].append(p[0])
-        print(dic)
-
-
         return
 
 def main(mountpoint, root):
