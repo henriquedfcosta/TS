@@ -43,12 +43,6 @@ class Passthrough(Operations):
         full_path = self._full_path(path)
         return os.chown(full_path, uid, gid)
 
-    """def getattr(self, path, fh=None):
-        full_path = self._full_path(path)
-        st = os.lstat(full_path)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-                     'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
-    """
     #Get file attributes
     def getattr(self, path, fh=None):
 
@@ -188,7 +182,7 @@ class Passthrough(Operations):
 
     def getCriticalFileAtributtes(self):
 
-        listCriticalFolders = ["/etc/", "/dev/hd"]
+        listCriticalFolders = ["/etc/", "/dev/"]
         #listCriticalFolders = ['/etc/']
         shpfiles = []
 
@@ -198,6 +192,8 @@ class Passthrough(Operations):
         for i in range(len(listCriticalFolders)):
 
             for dirpath, subdirs, files in os.walk(listCriticalFolders[i]):
+                print("Diretoria", dirpath)
+                print("Ficheiros", files)
                 for x in files:
                     if not x.endswith("supervise") and not x.endswith(".service") and not x.endswith(".conf") :
                         shpfiles.append(os.path.join(dirpath, x))
@@ -206,12 +202,8 @@ class Passthrough(Operations):
         res = {}
         loaded = {}
 
-
-        # Transformar em JSON
         for x in shpfiles:
 
-            #print("Atributos: ")
-            #print("path", shpfiles[x])
             file_ = ntpath.basename(x)
 
             res[file_] = self.getattr(x)
