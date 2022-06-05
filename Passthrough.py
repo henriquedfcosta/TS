@@ -8,6 +8,10 @@ import json
 from turtle import xcor
 from Helper import Helper
 import subprocess
+import qrcode
+import pyotp
+import pwd
+from IPython.display import display, Image
 
 from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 
@@ -16,7 +20,8 @@ class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
         self.atr_path, self.hash_path = self.getPaths()
-        self.getCriticalFileAtributtes()
+        #self.authenticate('dancrossss')
+        self.getCriticalFileAttributes()
 
     # Helpers
     # =======
@@ -180,7 +185,7 @@ class Passthrough(Operations):
 
         return self.atr_path, self.hash_path
 
-    def getCriticalFileAtributtes(self):
+    def getCriticalFileAttributes(self):
 
         listCriticalFolders = ["/etc/", "/dev/"]
         #listCriticalFolders = ['/etc/']
@@ -242,6 +247,14 @@ class Passthrough(Operations):
 
         
         return
+
+    def authenticate(self,username):
+        t = pyotp.TOTP('762022562022')
+        auth_str = t.provisioning_uri(name=username,issuer_name=username)
+        #print(auth_str)
+        img = qrcode.make(auth_str)
+        display(img)
+
 
 def main(mountpoint, root):
     FUSE(Passthrough(root),
