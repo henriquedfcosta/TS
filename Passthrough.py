@@ -9,25 +9,19 @@ import ntpath
 import json
 import pwd, grp
 import hashlib
+import subprocess
 from Helper import Helper
 
 from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 
-#atr_path = "/home/kali/Desktop/TS/atributos.json"
+#atr_path = "/home/dancrossss/Desktop/TS/atributos.json"
 
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
-        self.atr_path = self.getJsonPath()
+        self.atr_path, self.hash_path = self.getPaths()
         self.getCriticalFileAttributes()
-        #self.allFileUsersAccess()
-    
-    def getJsonPath(self):
-        helper = Helper()
-
-        self.atr_path = helper.jsonPath()
-
-        return self.atr_path 
+        #self.allFileUsersAccess() 
 
     # Helpers
     # =======
@@ -68,31 +62,54 @@ class Passthrough(Operations):
         #os.access(full_path, os.W_OK)
         #print(st)
         attr = {}
-        counter = 0
+        # counter = 4
         dict_ = {}
-
+        # print(counter)
+        attr['file_name'] = ntpath.basename(path)
+        attr['st_uid'] = os.stat(path).st_uid
+        attr['st_gid'] = os.stat(path).st_gid
+        attr['rp'] = True if os.access(path, os.R_OK) == True else False
+        attr['wp'] = True if os.access(path, os.W_OK) == True else False
+        attr['xp'] = True if os.access(path, os.X_OK) == True else False
+        #attr['hash'] = self.hash_file(path)
         try:
-            for key in ('st_mode', 'st_ino', 'st_dev', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_ctime'):
-                attr['file_name'] = ntpath.basename(path)
-                attr[key] = st[counter]
-                counter = counter + 1
-                attr['rp'] = True if os.access(path, os.R_OK) == True else False
-                attr['wp'] = True if os.access(path, os.W_OK) == True else False
-                attr['xp'] = True if os.access(path, os.X_OK) == True else False
+            with open(self.hash_path, "w") as fs:
+                #child2 = subprocess.Popen(["cat", "texto.txt"], stdout = fs)
+                child3 = subprocess.Popen(["sha1sum", path], stdout = fs)
+                with open(self.hash_path, "r") as f:
+                    for line in f:
+                        line = line.split(" ")
+                        attr['hash'] = line[0]
+        except FileNotFoundError:
+            print("Ficheiro 'catfile.txt' não existe")
+
+        #print(attr)
+        # counter+=1
+        # print(counter)
+        # print(attr)
+
+
+        # try:
+        #     for key in ('st_mode', 'st_ino', 'st_dev', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_ctime'):
+        #         if key == 'st_uid' or key == 'st_gid':
+        #             attr[key] = st[counter]
+        #             counter = counter + 1
+        #             attr['rp'] = True if os.access(path, os.R_OK) == True else False
+        #             attr['wp'] = True if os.access(path, os.W_OK) == True else False
+        #             attr['xp'] = True if os.access(path, os.X_OK) == True else False
                 #print(ntpath.basename(path))
                 #print("cenas: ", self.hash_file(ntpath.basename(path)))
                 #attr['hash'] = self.hash_file(ntpath.basename(path))
                 #attr['rp'] = True
-        except:
-            print("E link")
-        #print(attr)
+        # except:
+        #     print("E link")
+        # print(attr)
 
         """file = self.open(full_path, os.O_RDONLY)
         attr['hash'] = hashlib.sha256(file).hexdigest() 
         print(attr['hash'])"""
 
         dict_[ntpath.basename(path)] = attr
-        print(dict_)
 
         return dict_ 
 
@@ -215,6 +232,14 @@ class Passthrough(Operations):
     #         dic[p[0]] = grp.getgrgid(p[3])[0]
     #     return dic
 
+    # Obter json path
+    def getPaths(self):
+        helper = Helper()
+
+        self.atr_path = helper.jsonPath()
+        self.hash_path = helper.hashFilePath()
+
+        return self.atr_path,self.hash_path
 
     def getCriticalFileAttributes(self):
 
@@ -242,13 +267,13 @@ class Passthrough(Operations):
             #print("path", shpfiles[x])
 
             self.getattr(shpfiles[x])
-            with open(str(self.atr_path)) as f:
+            with open(self.atr_path) as f:
                 try:
                     loaded = json.load(f)
                 except:
                     loaded = {}
 
-            with open(str(self.atr_path), "w") as f:
+            with open(self.atr_path, "w") as f:
                 
                 loaded[list(self.getattr(shpfiles[x]).keys())[0]] = self.getattr(shpfiles[x]).get(list(self.getattr(shpfiles[x]).keys())[0])
                 json.dump(loaded, f, indent=6)
