@@ -11,7 +11,16 @@ class Helper():
 
         return hash_path
 
-    def getUserId(self, dict, path):
+    def getFileIds(self, dict, path):
 
-        for i in dict:
+        gid = 0
+        uid = 0
+        for j, i in dict.items():
+            for x, z in i.items():
+                #print(z)
+                uid = z['st_uid']
+                gid = z['st_gid']
+
+        return gid, uid
+
             

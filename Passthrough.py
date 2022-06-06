@@ -2,12 +2,15 @@ from __future__ import with_statement
 from genericpath import isdir, isfile
 
 import os
+from posixpath import split
 import sys
 import errno
 import ntpath
 import json
 from traceback import print_tb
 from turtle import xcor
+
+from sqlalchemy import true
 from Helper import Helper
 import subprocess
 import qrcode
@@ -23,9 +26,10 @@ from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
-        self.mode = 0
         self.FLAG_HASH = True
+        self.FLAG_AUTH = False
         self.atr_path, self.hash_path = self.getPaths()
+        self.listCriticalFiles = ['/etc/ipsec.conf', '/etc/passwd', '/etc/login.defs','/etc/rearj.cfg']
         #self.authenticate('dancrossss')
         self.getCriticalFileAttributes()
 
@@ -43,28 +47,8 @@ class Passthrough(Operations):
 
     def access(self, path, mode):
         full_path = self._full_path(path)
-        self.mode = mode
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
-
-
-    def authentication(self):
-        t = pyotp.TOTP('3232323232323232')
-        auth_str = t.provisioning_uri(name='dancrossss',issuer_name='dancrossss')
-        print(auth_str)
-        code = t.now()
-        print(code)
-        print('Enter code:')
-        x = input()
-        print(x)
-        if  code == x:
-            return True
-            # if t.verify(code):
-            #     return True
-            # time.sleep(30)
-            # return t.verify(code)
-        else:
-            print("Codigo invalido")
 
     def chmod(self, path, mode):
         full_path = self._full_path(path)
@@ -172,68 +156,8 @@ class Passthrough(Operations):
     # ============
 
     def open(self, path, flags):
-        self.checkPermission(path)
         full_path = self._full_path(path)
         return os.open(full_path, flags)
-
-
-    def loadJson(self):
-        dict_ = {}
-
-        with open(self.atr_path, 'r') as f:
-            dict_ = json.load(f)
-        
-        return dict_
-
-    def checkPermission(self, path):
-
-        full_path = self._full_path(path)
-        dict_ = self.loadJson()
-        dict2 = {}
-        
-        direct = isdir(ntpath.basename(full_path))
-        file_ = ntpath.basename(full_path)
-
-        print(direct)
-        if not direct:
-            print("e ficheiro")
-            for k, v in dict_.items():
-                #print('valor v: ',v)
-                print(full_path)
-                #dict2[full_path] = v[ntpath.basename(full_path)]
-                #print(dict2)
-                #dict2[k][file_] = dict2[k].get(file_).get('st_uid')
-
-                # for x, j in v.items():
-                #     dict2[x] = j['st_uid']
-                #     #print(dict2)
-                    #flag = j['st_mode']
-            
-            # for i in dict2.keys():
-            #     print("entrou no for")
-            #     print("file", file_)
-            #     print('i: ', i)
-            #     if file_ == i:
-            #         print("ficheiro iguais")
-            #         if not os.getuid() == dict2.get(i):
-            #             print("user id diferentes")
-            #             if not os.access(full_path, flag):
-            #                 # if self.authentication():
-            #                 #     #print("deu true")
-            #                 #     #mudar o acesso de alguma forma
-            #                 #     #os.access(full_path, mode) == True
-            #                 #     self.chmod(full_path,77)
-            #                 #     #os.chmod(full_path, 7)
-            #                 #     #print("mudou")
-            #                 # else:
-            #                 #     print("nao tem permissao")
-            #                 #     raise FuseOSError(errno.EACCES)
-            #                 print("nao tem permissao")
-            #     else:
-            #         print("ficheiros diferentes")
-        else:
-            print("nao")
-        return 
 
     def create(self, path, mode, fi=None):
         uid, gid, pid = fuse_get_context()
@@ -243,11 +167,14 @@ class Passthrough(Operations):
         return fd
 
     def read(self, path, length, offset, fh):
+
+        if ntpath.basename(path) in self.listCriticalFiles:
+            self.checkPermission(path)
+        
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
-        print('open')
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
@@ -267,8 +194,8 @@ class Passthrough(Operations):
 
     # Our methods
     # ============
-     # Obter json path
-     
+
+    # Obter json path 
     def getPaths(self):
 
         helper = Helper()
@@ -278,10 +205,58 @@ class Passthrough(Operations):
 
         return self.atr_path, self.hash_path
 
+    def loadJson(self):
+        dict_ = {}
+
+        with open(self.atr_path, 'r') as f:
+            dict_ = json.load(f)
+        
+        return dict_
+
+    def authentication(self):
+        t = pyotp.TOTP('3232323232323232')
+        auth_str = t.provisioning_uri(name='dancrossss',issuer_name='dancrossss')
+        print(auth_str)
+        code = t.now()
+        print(code)
+        print('Enter code:')
+        x = input()
+        print(x)
+        if code == x:
+            return True
+            # if t.verify(code):
+            #     return True
+            # time.sleep(30)
+            # return t.verify(code)
+        else:
+            print("Codigo invalido")
+            return False
+
+    def checkPermission(self, path):
+
+        file_ = ntpath.basename(path)
+        print(file_)
+
+        dict_ = self.loadJson()
+
+        helper = Helper()
+
+        gid, uid = helper.getFileIds(dict_, path)
+
+        userId = os.getuid()
+        groupId = os.getgid()
+        
+        if not isdir(path):
+            if userId == uid and groupId == gid:
+                return True
+            else:
+                return self.authentication()
+        else:
+            return True    
+
     def getCriticalFileAttributes(self):
 
-        #listCriticalFolders = ["/etc/", "/dev/"]
-        listCriticalFolders = ['/etc/']
+        listCriticalFolders = ["/etc/"]
         shpfiles = []
 
         print("Sistema de ficheiros iniciado")
@@ -307,7 +282,6 @@ class Passthrough(Operations):
             res[file_] = self.getattr(x)
 
             count += 1
-            print("\n\n")
         
         self.FLAG_HASH = False
 
@@ -342,3 +316,6 @@ def main(mountpoint, root):
 
 if __name__ == '__main__':
     main(sys.argv[2], sys.argv[1])
+
+
+# TODO: FALTA VER A QUESTAO DE PEDIR AUTENTICACAO EM TODOS FICHEIROS ANTES DE ABRIR
