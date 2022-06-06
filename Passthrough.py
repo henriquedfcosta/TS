@@ -1,10 +1,12 @@
 from __future__ import with_statement
+from genericpath import isdir, isfile
 
 import os
 import sys
 import errno
 import ntpath
 import json
+from traceback import print_tb
 from turtle import xcor
 from Helper import Helper
 import subprocess
@@ -13,6 +15,7 @@ import pyotp
 import pwd
 import time
 from IPython.display import display, Image
+import stat
 
 from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 
@@ -20,6 +23,7 @@ from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
+        self.mode = 0
         self.FLAG_HASH = True
         self.atr_path, self.hash_path = self.getPaths()
         #self.authenticate('dancrossss')
@@ -39,19 +43,10 @@ class Passthrough(Operations):
 
     def access(self, path, mode):
         full_path = self._full_path(path)
+        self.mode = mode
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
-    # def access(self, path, mode):
-    #     print("mode: ",mode)
-    #     full_path = self._full_path(path)
-    #     if not os.access(full_path, mode):
-    #         if self.authentication():
-    #             #mudar o acesso de alguma forma
-    #             #os.access(full_path, mode) == True
-    #             self.chmod(full_path,666)
-    #         else:
-    #             raise FuseOSError(errno.EACCES)
 
     def authentication(self):
         t = pyotp.TOTP('3232323232323232')
@@ -102,7 +97,7 @@ class Passthrough(Operations):
             attr['execute'] = execute
 
             if self.FLAG_HASH:
-                print("dentro do attr no if", self.FLAG_HASH)
+                #print("dentro do attr no if", self.FLAG_HASH)
                 try:
                     with open(self.hash_path, "w") as fs:
                         child3 = subprocess.Popen(["sha1sum", full_path], stdout = fs, stderr=subprocess.DEVNULL)
@@ -113,7 +108,7 @@ class Passthrough(Operations):
                 except FileNotFoundError:
                     print("Ficheiro 'catfile.txt' não existe")   
             else:
-                print("dentro do attr no else", self.FLAG_HASH)
+                #print("dentro do attr no else", self.FLAG_HASH)
                 pass
 
 
@@ -177,19 +172,68 @@ class Passthrough(Operations):
     # ============
 
     def open(self, path, flags):
+        self.checkPermission(path)
         full_path = self._full_path(path)
-
-        print(flags)
-
-        if not os.access(full_path, flags):
-            if self.authentication():
-                print("deu true")
-                #mudar o acesso de alguma forma
-                #os.access(full_path, mode) == True
-                self.chmod(full_path,777)
-            else:
-                raise FuseOSError(errno.EACCES)
         return os.open(full_path, flags)
+
+
+    def loadJson(self):
+        dict_ = {}
+
+        with open(self.atr_path, 'r') as f:
+            dict_ = json.load(f)
+        
+        return dict_
+
+    def checkPermission(self, path):
+
+        full_path = self._full_path(path)
+        dict_ = self.loadJson()
+        dict2 = {}
+        
+        direct = isdir(ntpath.basename(full_path))
+        file_ = ntpath.basename(full_path)
+
+        print(direct)
+        if not direct:
+            print("e ficheiro")
+            for k, v in dict_.items():
+                #print('valor v: ',v)
+                print(full_path)
+                #dict2[full_path] = v[ntpath.basename(full_path)]
+                #print(dict2)
+                #dict2[k][file_] = dict2[k].get(file_).get('st_uid')
+
+                # for x, j in v.items():
+                #     dict2[x] = j['st_uid']
+                #     #print(dict2)
+                    #flag = j['st_mode']
+            
+            # for i in dict2.keys():
+            #     print("entrou no for")
+            #     print("file", file_)
+            #     print('i: ', i)
+            #     if file_ == i:
+            #         print("ficheiro iguais")
+            #         if not os.getuid() == dict2.get(i):
+            #             print("user id diferentes")
+            #             if not os.access(full_path, flag):
+            #                 # if self.authentication():
+            #                 #     #print("deu true")
+            #                 #     #mudar o acesso de alguma forma
+            #                 #     #os.access(full_path, mode) == True
+            #                 #     self.chmod(full_path,77)
+            #                 #     #os.chmod(full_path, 7)
+            #                 #     #print("mudou")
+            #                 # else:
+            #                 #     print("nao tem permissao")
+            #                 #     raise FuseOSError(errno.EACCES)
+            #                 print("nao tem permissao")
+            #     else:
+            #         print("ficheiros diferentes")
+        else:
+            print("nao")
+        return 
 
     def create(self, path, mode, fi=None):
         uid, gid, pid = fuse_get_context()
@@ -203,6 +247,7 @@ class Passthrough(Operations):
         return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
+        print('open')
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
@@ -266,8 +311,6 @@ class Passthrough(Operations):
         
         self.FLAG_HASH = False
 
-        print("No fim da execu;cao", self.FLAG_HASH)
-
         print(count)
 
         for j in range(len(listCriticalFolders)):
@@ -275,21 +318,18 @@ class Passthrough(Operations):
 
         j = json.dumps(loaded)
 
+        os.chmod(self.atr_path, stat.S_IRWXU)
+
         with open(self.atr_path,'w') as f:
             f.write(j)
             f.close()
+
+        os.chmod(self.atr_path, stat.S_IRUSR)
 
         #Testar a possibilidade de adicionar na lista
         #uma pasta e não só um ficheiro
         
         return
-
-    def authenticate(self,username):
-        t = pyotp.TOTP('762022562022')
-        auth_str = t.provisioning_uri(name=username,issuer_name=username)
-        #print(auth_str)
-        img = qrcode.make(auth_str)
-        display(img)
 
 
 def main(mountpoint, root):

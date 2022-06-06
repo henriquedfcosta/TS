@@ -10,3 +10,8 @@ class Helper():
         hash_path = "/home/kali/Desktop/TS/TS/catfile.txt"
 
         return hash_path
+
+    def getUserId(self, dict, path):
+
+        for i in dict:
+            
