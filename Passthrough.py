@@ -11,6 +11,7 @@ import subprocess
 import qrcode
 import pyotp
 import pwd
+import time
 from IPython.display import display, Image
 
 from fuse import FUSE, FuseOSError, Operations, fuse_get_context
@@ -19,6 +20,7 @@ from fuse import FUSE, FuseOSError, Operations, fuse_get_context
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
+        self.FLAG_HASH = True
         self.atr_path, self.hash_path = self.getPaths()
         #self.authenticate('dancrossss')
         self.getCriticalFileAttributes()
@@ -40,6 +42,35 @@ class Passthrough(Operations):
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
+    # def access(self, path, mode):
+    #     print("mode: ",mode)
+    #     full_path = self._full_path(path)
+    #     if not os.access(full_path, mode):
+    #         if self.authentication():
+    #             #mudar o acesso de alguma forma
+    #             #os.access(full_path, mode) == True
+    #             self.chmod(full_path,666)
+    #         else:
+    #             raise FuseOSError(errno.EACCES)
+
+    def authentication(self):
+        t = pyotp.TOTP('3232323232323232')
+        auth_str = t.provisioning_uri(name='dancrossss',issuer_name='dancrossss')
+        print(auth_str)
+        code = t.now()
+        print(code)
+        print('Enter code:')
+        x = input()
+        print(x)
+        if  code == x:
+            return True
+            # if t.verify(code):
+            #     return True
+            # time.sleep(30)
+            # return t.verify(code)
+        else:
+            print("Codigo invalido")
+
     def chmod(self, path, mode):
         full_path = self._full_path(path)
         return os.chmod(full_path, mode)
@@ -51,39 +82,45 @@ class Passthrough(Operations):
     #Get file attributes
     def getattr(self, path, fh=None):
 
-        #full_path = self._full_path(path)
+        full_path = self._full_path(path)
         st = os.stat(path)
         attr = {}
         counter = 0
-        dict_ = []
 
         #Testar se o path que mandei é readability
-        read = os.access(path, os.R_OK)
+        read = os.access(full_path, os.R_OK)
         #Testar se o path que mandei é writable
-        write = os.access(path, os.W_OK)
+        write = os.access(full_path, os.W_OK)
         #Testar se o path que mandei é executável
-        execute = os.access(path, os.X_OK)
+        execute = os.access(full_path, os.X_OK)
 
         for key in ('st_mode', 'st_ino', 'st_dev', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_ctime'):
                 
-            attr['file_name'] = ntpath.basename(path)
+            attr['file_name'] = ntpath.basename(full_path)
             attr['read'] = read
             attr['write'] = write
             attr['execute'] = execute
 
-            try:
-                with open(self.hash_path, "w") as fs:
-                    child3 = subprocess.Popen(["sha1sum", path], stdout = fs, stderr=subprocess.DEVNULL)
-                    with open(self.hash_path, "r") as f:
-                        for line in f:
-                            line = line.split(" ")
-                            attr['hash'] = line[0]
-            except FileNotFoundError:
-                print("Ficheiro 'catfile.txt' não existe")   
+            if self.FLAG_HASH:
+                print("dentro do attr no if", self.FLAG_HASH)
+                try:
+                    with open(self.hash_path, "w") as fs:
+                        child3 = subprocess.Popen(["sha1sum", full_path], stdout = fs, stderr=subprocess.DEVNULL)
+                        with open(self.hash_path, "r") as f:
+                            for line in f:
+                                line = line.split(" ")
+                                attr['hash'] = line[0]
+                except FileNotFoundError:
+                    print("Ficheiro 'catfile.txt' não existe")   
+            else:
+                print("dentro do attr no else", self.FLAG_HASH)
+                pass
 
 
             attr[key] = st[counter]
             counter = counter + 1
+
+        #print("attr", attr)
 
         return attr 
 
@@ -141,6 +178,17 @@ class Passthrough(Operations):
 
     def open(self, path, flags):
         full_path = self._full_path(path)
+
+        print(flags)
+
+        if not os.access(full_path, flags):
+            if self.authentication():
+                print("deu true")
+                #mudar o acesso de alguma forma
+                #os.access(full_path, mode) == True
+                self.chmod(full_path,777)
+            else:
+                raise FuseOSError(errno.EACCES)
         return os.open(full_path, flags)
 
     def create(self, path, mode, fi=None):
@@ -187,8 +235,8 @@ class Passthrough(Operations):
 
     def getCriticalFileAttributes(self):
 
-        listCriticalFolders = ["/etc/", "/dev/"]
-        #listCriticalFolders = ['/etc/']
+        #listCriticalFolders = ["/etc/", "/dev/"]
+        listCriticalFolders = ['/etc/']
         shpfiles = []
 
         print("Sistema de ficheiros iniciado")
@@ -197,8 +245,8 @@ class Passthrough(Operations):
         for i in range(len(listCriticalFolders)):
 
             for dirpath, subdirs, files in os.walk(listCriticalFolders[i]):
-                print("Diretoria", dirpath)
-                print("Ficheiros", files)
+                #print("Diretoria", dirpath)
+                #print("Ficheiros", files)
                 for x in files:
                     if not x.endswith("supervise") and not x.endswith(".service") and not x.endswith(".conf") :
                         shpfiles.append(os.path.join(dirpath, x))
@@ -213,22 +261,13 @@ class Passthrough(Operations):
 
             res[file_] = self.getattr(x)
 
-            # with open("/home/kali/Desktop/TS/TS/atributos.json", "r") as f:
-
-            #     try:
-            #         loaded = json.load(f)
-            #     except:
-            #         pass
-
-            # with open("/home/kali/Desktop/TS/TS/atributos.json", "w") as f:
-
-            #     loaded[list(self.getattr(shpfiles[x]).keys())[0]] = self.getattr(shpfiles[x]).get(list(self.getattr(shpfiles[x]).keys())[0])
-            #     json.dump(loaded, f, indent=6)
-                
             count += 1
-
-            #print
             print("\n\n")
+        
+        self.FLAG_HASH = False
+
+        print("No fim da execu;cao", self.FLAG_HASH)
+
         print(count)
 
         for j in range(len(listCriticalFolders)):
@@ -240,11 +279,8 @@ class Passthrough(Operations):
             f.write(j)
             f.close()
 
-        #print("aaa", loaded)
-                
         #Testar a possibilidade de adicionar na lista
         #uma pasta e não só um ficheiro
-
         
         return
 
