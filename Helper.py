@@ -1,3 +1,5 @@
+import json
+
 class Helper():
 
     def jsonPath(self):
@@ -11,16 +13,34 @@ class Helper():
 
         return hash_path
 
-    def getFileIds(self, dict, path):
+    def getFileIds(self, dict_, path):
+        gid = -111
+        uid = -111
+        file_name = ""
 
-        gid = 0
-        uid = 0
-        for j, i in dict.items():
+        for j, i in dict_.items():
             for x, z in i.items():
-                #print(z)
-                uid = z['st_uid']
-                gid = z['st_gid']
+                #print(z['file_name'])
+                if path == z['file_name']:
+                    #print("entrou")
+                    uid = z['st_uid']
+                    gid = z['st_gid']
+                    file_name = z['file_name']
+                    return gid, uid, file_name
+        
+        return gid, uid, file_name
+        
+if __name__ == "__main__":
+    h = Helper()
+    x = h.jsonPath()
 
-        return gid, uid
+    dict_ = {}
 
-            
+    with open(x ,'r') as f:
+        dict_ = json.load(f)
+
+    gid, uid, file_name = h.getFileIds(dict_, "/passwd")
+    print(gid)
+    print(uid)
+    print(file_name)
+    
