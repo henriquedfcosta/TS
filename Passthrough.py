@@ -149,13 +149,13 @@ class Passthrough(Operations):
         full_path = self._full_path(path)
         
         if os.path.isfile(full_path):
-            # self.authentication()
-            # return os.open(full_path, flags)
-
-            if (self.authentication()):
-                return os.open(full_path, flags)
-            else:
-                return os.open(full_path, flags)
+            print(full_path)
+            if ntpath.basename(full_path) in self.listCriticalFiles:
+                if (self.authentication()):
+                    return os.open(full_path, flags)
+                else:
+                    raise FuseOSError()
+            return os.open(full_path, flags)
         else:
             return os.open(full_path, flags)
 
@@ -230,8 +230,9 @@ class Passthrough(Operations):
 
         helper = Helper()
 
-        userId = os.getuid()
-        groupId = os.getgid()
+        ##userId = os.getuid()
+        #groupId = os.getgid()
+        groupId, userId, pid = fuse_get_context()
         x = ntpath.basename(full_path)
         print(x)
         gid, uid , file_name = helper.getFileIds(dict_, x)
@@ -365,5 +366,3 @@ def main(mountpoint, root):
 if __name__ == '__main__':
     main(sys.argv[2], sys.argv[1])
 
-
-# TODO: FALTA VER A QUESTAO DE CODIGO VALIDACAO NO CASO DE SAIR
