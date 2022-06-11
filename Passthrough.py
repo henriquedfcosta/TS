@@ -20,7 +20,7 @@ class Passthrough(Operations):
         self.FLAG_HASH = True
         self.count = 0
         self.atr_path, self.hash_path = self.getPaths()
-        self.listCriticalFiles = ['passwd', 'shadow', 'ipsec.conf']
+        self.listCriticalFiles = ['/etc/passwd', '/etc/shadow', '/etc/ipsec.conf', '/etc/services', '/etc/crontab', '/etc/init.d/apache2']
         self.getCriticalFileAttributes()
 
     # Helpers
@@ -147,24 +147,17 @@ class Passthrough(Operations):
 
     def open(self, path, flags):
         full_path = self._full_path(path)
-        
-        if os.path.isfile(full_path):
-            print(full_path)
-            if ntpath.basename(full_path) in self.listCriticalFiles:
-                if (self.authentication()):
-                    return os.open(full_path, flags)
-                else:
-                    raise FuseOSError()
-            return os.open(full_path, flags)
+
+        print(full_path)
+        if full_path in self.listCriticalFiles:
+            if (self.checkPermissions(full_path)):
+                self.authentication()
+                return os.open(full_path, flags)
+            else:
+                raise FuseOSError()
         else:
+            print("Ficheiro nao critico")
             return os.open(full_path, flags)
-
-        # if self.checkPermissions(full_path):
-        #     self.authentication()
-        #     return os.open(full_path, flags)
-        # else:
-        #     return os.open(full_path, flags)
-
             
         
     def create(self, path, mode, fi=None):
@@ -175,32 +168,8 @@ class Passthrough(Operations):
         return fd
 
     def read(self, path, length, offset, fh):
-
-        #full_path = self._full_path(path)
-
-        # if os.path.isfile(full_path):
-        #     if (self.authentication()):
-        #         self.chmod(full_path, 400)
-        #         os.lseek(fh, offset, os.SEEK_SET)
-        #         return os.read(fh, length)
-        #     else:
-        #         os.lseek(fh, offset, os.SEEK_SET)
-        #         return os.read(fh, length)
-        # else:
-        #     os.lseek(fh, offset, os.SEEK_SET)
-        #     return os.read(fh, length)
-            
-        # if self.checkPermissions(full_path):
-        #     self.authentication()
-        #     os.lseek(fh, offset, os.SEEK_SET)
-        #     return os.read(fh, length)
-        # else:
-        #     os.lseek(fh, offset, os.SEEK_SET)
-        #     return os.read(fh, length)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
-
-
         
     def write(self, path, buf, offset, fh):
         os.lseek(fh, offset, os.SEEK_SET)
@@ -230,8 +199,6 @@ class Passthrough(Operations):
 
         helper = Helper()
 
-        ##userId = os.getuid()
-        #groupId = os.getgid()
         groupId, userId, pid = fuse_get_context()
         x = ntpath.basename(full_path)
         print(x)
@@ -242,18 +209,15 @@ class Passthrough(Operations):
             print("groupId", groupId)
             print("uid", uid)
             print("gid", gid)
-            
-            if (x in self.listCriticalFiles):
-                if userId == uid or groupId == gid:
-                    return True
-                else:
-                    #print("Permission denied")
-                    return False
+
+            if userId == uid or groupId == gid:
+                print("entrou no 1 if")
+                return True
             else:
-                #print("Ficheiro nao critico")
+                #print("Permission denied")
                 return False
         else:
-            #print("Diretoria ou ficheiro nao critico")
+            print("Diretoria ou ficheiro nao critico")
             return False
 
     # Obter json path 
@@ -334,7 +298,7 @@ class Passthrough(Operations):
         
         self.FLAG_HASH = False
 
-        print(count)
+        print("Total ficheiros: ", count)
 
         for j in range(len(listCriticalFolders)):
             loaded[listCriticalFolders[j]] = res
