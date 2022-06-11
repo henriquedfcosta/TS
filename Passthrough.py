@@ -242,12 +242,13 @@ class Passthrough(Operations):
         secret_path  = helper.getSecretFile()
 
         with open(secret_path, 'r') as f:
-            secret = json.load(f)
+            dict_ = json.load(f)
         
         n = 3
+        print(dict_)
         print("autenticacao")
-        t = pyotp.TOTP(str(secret))
-        auth_str = t.provisioning_uri(name='dancrossss',issuer_name='dancrossss')
+        t = pyotp.TOTP(str(dict_['secret']))
+        auth_str = t.provisioning_uri(name=str(dict_['name']),issuer_name=str(dict_['issuer_name']))
         print(auth_str)
         code = t.now()
         print(code)

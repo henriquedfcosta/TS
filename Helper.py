@@ -4,7 +4,7 @@ class Helper():
 
     def getSecretFile(self):
 
-        secret_path = "/home/kali/Desktop/TS/TS/secret.txt"
+        secret_path = "/home/kali/Desktop/TS/TS/secret.json"
 
         return secret_path
 

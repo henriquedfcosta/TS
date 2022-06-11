@@ -1,31 +1,43 @@
 import json
 import os
 import subprocess
-
+from Helper import Helper
 class Permissoes():
 
-    def createNecessaryFiles(self, ):
+    def createNecessaryFiles(self, secret, name, issuer_name):
 
-        secret_path = "/home/kali/Desktop/TS/TS/secret.txt"
+        helper = Helper()
 
-        atr_path = "/home/kali/Desktop/TS/TS/atributos.json"
+        secret_path = helper.getSecretFile()
 
-        hash_path = "/home/kali/Desktop/TS/TS/catfile.txt"
+        atr_path = helper.jsonPath()
 
-        with open(secret_path, 'r') as f:
+        hash_path = helper.hashFilePath()
+
+        dict_ = {}
+
+        dict_['secret'] = secret
+        dict_['name'] = name
+        dict_['issuer_name'] = issuer_name
+
+        j = json.dumps(dict_)
+
+        print(dict_)
+
+        with open(secret_path, 'w') as f:
             print("The txt file is created")
-            #f.write(secret)
+            f.write(j)
             p = subprocess.Popen("sudo chown root:root " + secret_path, stdout=subprocess.PIPE, shell=True)
             p = subprocess.Popen("sudo chmod 700 " + secret_path, stdout=subprocess.PIPE, shell=True)
             f.close()
         
-        with open(atr_path, 'r') as f:
+        with open(atr_path, 'w') as f:
             print("The txt file is created")
             p = subprocess.Popen("sudo chown root:root " + atr_path, stdout=subprocess.PIPE, shell=True)
             p = subprocess.Popen("sudo chmod 700 " + atr_path, stdout=subprocess.PIPE, shell=True)
             f.close()
 
-        with open(hash_path, 'r') as f:
+        with open(hash_path, 'w') as f:
             print("The json file is created")
             p = subprocess.Popen("sudo chown root:root " + hash_path, stdout=subprocess.PIPE, shell=True)
             p = subprocess.Popen("sudo chmod 700 " + hash_path, stdout=subprocess.PIPE, shell=True)
@@ -35,7 +47,9 @@ class Permissoes():
 
 if __name__ == "__main__":
 
-    secret = input("Insira o seu segredo (min 16 caracters): ")
+    secret = input("Insira o seu segredo: ")
+    name = input("Insira o name: ")
+    issuer_name = input("Insira o issuer_name: ")
 
     p = Permissoes()
-    p.createNecessaryFiles()
+    p.createNecessaryFiles(secret, name, issuer_name) 
