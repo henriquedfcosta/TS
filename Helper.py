@@ -2,6 +2,12 @@ import json
 
 class Helper():
 
+    def getSecretFile(self):
+
+        secret_path = "/home/kali/Desktop/TS/TS/secret.txt"
+
+        return secret_path
+
     def jsonPath(self):
         atr_path = "/home/kali/Desktop/TS/TS/atributos.json"
 

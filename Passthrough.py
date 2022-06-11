@@ -20,10 +20,11 @@ class Passthrough(Operations):
         self.FLAG_HASH = True
         self.count = 0
         self.atr_path, self.hash_path = self.getPaths()
-        self.listCriticalFiles = ['/etc/passwd', '/etc/shadow', '/etc/ipsec.conf', '/etc/services', '/etc/crontab', '/etc/init.d/apache2']
+        self.listCriticalFiles = ['/etc/passwd', '/etc/shadow', '/etc/services', '/etc/crontab', '/etc/init.d/apache2']
         self.getCriticalFileAttributes()
 
     # Helpers
+
     # =======
 
     def _full_path(self, partial):
@@ -154,7 +155,8 @@ class Passthrough(Operations):
                 self.authentication()
                 return os.open(full_path, flags)
             else:
-                raise FuseOSError()
+                #raise FuseOSError()
+                return os.open(full_path, flags)
         else:
             print("Ficheiro nao critico")
             return os.open(full_path, flags)
@@ -210,12 +212,7 @@ class Passthrough(Operations):
             print("uid", uid)
             print("gid", gid)
 
-            if userId == uid or groupId == gid:
-                print("entrou no 1 if")
-                return True
-            else:
-                #print("Permission denied")
-                return False
+            return True
         else:
             print("Diretoria ou ficheiro nao critico")
             return False
@@ -240,17 +237,22 @@ class Passthrough(Operations):
 
     def authentication(self):
 
+        helper = Helper()
+
+        secret_path  = helper.getSecretFile()
+
+        with open(secret_path, 'r') as f:
+            secret = json.load(f)
+        
         n = 3
         print("autenticacao")
-        t = pyotp.TOTP('3232323232323232')
+        t = pyotp.TOTP(str(secret))
         auth_str = t.provisioning_uri(name='dancrossss',issuer_name='dancrossss')
         print(auth_str)
         code = t.now()
         print(code)
         print('Enter code:')
         x = input()
-        print(x)
-        print(t.verify(code))
 
         while n != 0:
             if code == x:
