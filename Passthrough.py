@@ -72,7 +72,6 @@ class Passthrough(Operations):
             attr['execute'] = execute
 
             if self.FLAG_HASH:
-                #print("dentro do attr no if", self.FLAG_HASH)
                 try:
                     with open(self.hash_path, "w") as fs:
                         child3 = subprocess.Popen(["sha1sum", full_path], stdout = fs, stderr=subprocess.DEVNULL)
@@ -245,11 +244,9 @@ class Passthrough(Operations):
             dict_ = json.load(f)
         
         n = 3
-        print(dict_)
-        print("autenticacao")
+
         t = pyotp.TOTP(str(dict_['secret']))
         auth_str = t.provisioning_uri(name=str(dict_['name']),issuer_name=str(dict_['issuer_name']))
-        print(auth_str)
         code = t.now()
         print(code)
         print('Enter code:')
@@ -281,8 +278,6 @@ class Passthrough(Operations):
         for i in range(len(listCriticalFolders)):
 
             for dirpath, subdirs, files in os.walk(listCriticalFolders[i]):
-                #print("Diretoria", dirpath)
-                #print("Ficheiros", files)
                 for x in files:
                     if not x.endswith("supervise") and not x.endswith(".service") and not x.endswith(".conf") :
                         shpfiles.append(os.path.join(dirpath, x))
@@ -315,9 +310,6 @@ class Passthrough(Operations):
             f.close()
 
         os.chmod(self.atr_path, stat.S_IRUSR)
-
-        #Testar a possibilidade de adicionar na lista
-        #uma pasta e não só um ficheiro
         
         return
 
